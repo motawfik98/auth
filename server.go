@@ -1,17 +1,15 @@
 package main
 
 import (
+	"auth/handlers"
 	"fmt"
 	"github.com/labstack/echo/v4"
-	"net/http"
 	"os"
 )
 
 func main() {
 	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Success")
-	})
+	e.GET("/", handlers.Ping)
 
 	port, exist := os.LookupEnv("PORT")
 	if os.Getenv("ENV") == "dev" {
