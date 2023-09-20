@@ -1,7 +1,7 @@
 package main
 
 import (
-	"auth/handlers"
+	"backend-auth/handlers"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"os"

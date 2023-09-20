@@ -1,7 +1,7 @@
 package test
 
 import (
-	"auth/handlers"
+	"backend-auth/handlers"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"net/http"

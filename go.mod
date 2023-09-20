@@ -1,4 +1,4 @@
-module auth
+module backend-auth
 
 go 1.21.1
 
