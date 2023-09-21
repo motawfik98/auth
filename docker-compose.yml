@@ -1,5 +1,27 @@
 services:
+  db:
+    image: mysql:8.0
+    restart: always
+    ports:
+      - "30306:3306"
+    environment:
+      MYSQL_ROOT_USER: root
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: auth
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 5s
+      retries: 10
   web:
+    depends_on:
+      db:
+        condition: service_healthy
     build: .
     ports:
       - "1323:1323"
+    environment:
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: auth
