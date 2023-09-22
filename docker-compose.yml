@@ -25,3 +25,6 @@ services:
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: auth
+      JWT_ACCESS_TOKEN: secret
+      JWT_REFRESH_TOKEN: refresh-secret
+

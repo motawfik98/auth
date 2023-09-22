@@ -3,9 +3,11 @@ package main
 import (
 	"backend-auth/controllers"
 	"backend-auth/database"
-	"backend-auth/handlers"
 	"backend-auth/logger"
+	"backend-auth/routes"
+	"backend-auth/utils"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"os"
 )
@@ -34,8 +36,11 @@ func main() {
 	controller := new(controllers.Controller)
 	controller.SetDB(db)
 
-	e.GET("/", handlers.Ping)
-	e.GET("/users/count", controller.GetUsersCount)
+	customValidator := &utils.CustomValidator{Validator: validator.New()}
+	customValidator.TranslateErrors()
+	e.Validator = customValidator
+
+	routes.InitializeRoutes(e, controller)
 
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", port)))
 }

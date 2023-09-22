@@ -12,11 +12,11 @@ import (
 )
 
 type DB struct {
-	db *gorm.DB
+	connection *gorm.DB
 }
 
 func (db *DB) SetDBConnection(gormDB *gorm.DB) {
-	db.db = gormDB
+	db.connection = gormDB
 }
 
 var (
