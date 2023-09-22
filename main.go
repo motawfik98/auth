@@ -1,13 +1,11 @@
 package main
 
 import (
-	"backend-auth/controllers"
-	"backend-auth/database"
-	"backend-auth/logger"
 	"backend-auth/routes"
 	"backend-auth/utils"
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"os"
 )
@@ -17,6 +15,9 @@ func main() {
 
 	port, exist := os.LookupEnv("PORT")
 	if os.Getenv("ENV") == "dev" {
+		if err := godotenv.Load(); err != nil {
+			fmt.Println(err.Error())
+		}
 		port = "1322"
 	} else {
 		if !exist {
@@ -24,17 +25,7 @@ func main() {
 		}
 	}
 
-	dbConnection, err := database.InitializeConnection()
-	if err != nil {
-		logger.LogFailure(err, "Failed to initialize DB connection")
-		panic(err)
-	}
-
-	db := new(database.DB)
-	db.SetDBConnection(dbConnection)
-
-	controller := new(controllers.Controller)
-	controller.SetDB(db)
+	controller := utils.InitializeController()
 
 	customValidator := &utils.CustomValidator{Validator: validator.New()}
 	customValidator.TranslateErrors()
