@@ -4,7 +4,6 @@ import (
 	"backend-auth/routes"
 	"backend-auth/utils"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"os"
@@ -27,9 +26,7 @@ func main() {
 
 	controller := utils.InitializeController()
 
-	customValidator := &utils.CustomValidator{Validator: validator.New()}
-	customValidator.TranslateErrors()
-	e.Validator = customValidator
+	e.Validator = utils.InitializeValidator()
 
 	routes.InitializeRoutes(e, controller)
 

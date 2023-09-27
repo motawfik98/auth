@@ -4,6 +4,7 @@ import (
 	"backend-auth/controllers"
 	"backend-auth/database"
 	"backend-auth/logger"
+	"github.com/go-playground/validator/v10"
 )
 
 func InitializeController() *controllers.Controller {
@@ -19,4 +20,10 @@ func InitializeController() *controllers.Controller {
 	controller := new(controllers.Controller)
 	controller.SetDB(db)
 	return controller
+}
+
+func InitializeValidator() *CustomValidator {
+	customValidator := &CustomValidator{Validator: validator.New()}
+	customValidator.TranslateErrors()
+	return customValidator
 }
