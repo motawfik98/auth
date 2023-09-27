@@ -32,7 +32,7 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 	user.Password = string(hashesPassword)
-	err = c.db.CreateUser(user)
+	err = c.datasource.CreateUser(user)
 	if errors.Is(err, &database.DuplicateEmailError{}) {
 		return ctx.JSON(http.StatusConflict, echo.Map{})
 	}
@@ -52,7 +52,7 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 }
 
 func (c *Controller) GetUsersCount(ctx echo.Context) error {
-	count := c.db.GetUsersCount()
+	count := c.datasource.GetUsersCount()
 	return ctx.String(http.StatusOK, strconv.FormatInt(count, 10))
 }
 

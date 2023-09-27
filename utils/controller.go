@@ -18,7 +18,7 @@ func InitializeController() *controllers.Controller {
 	db.SetDBConnection(dbConnection)
 
 	controller := new(controllers.Controller)
-	controller.SetDB(db)
+	controller.SetDatasource(db)
 	return controller
 }
 
