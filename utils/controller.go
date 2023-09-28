@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"backend-auth/cache"
 	"backend-auth/controllers"
 	"backend-auth/database"
 	"backend-auth/logger"
@@ -14,11 +15,20 @@ func InitializeController() *controllers.Controller {
 		panic(err)
 	}
 
+	cacheConnection, err := cache.InitializeConnection()
+	if err != nil {
+		logger.LogFailure(err, "Failed to initialize cache connection")
+		panic(err)
+	}
+
 	db := new(database.DB)
 	db.SetDBConnection(dbConnection)
+	cacheObj := new(cache.Cache)
+	cacheObj.SetCache(cacheConnection)
 
 	controller := new(controllers.Controller)
 	controller.SetDatasource(db)
+	controller.SetCache(cacheObj)
 	return controller
 }
 
