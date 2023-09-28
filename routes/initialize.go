@@ -3,22 +3,27 @@ package routes
 import (
 	"backend-auth/controllers"
 	"backend-auth/handlers"
+	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"os"
+	"slices"
 )
 
 func InitializeRoutes(e *echo.Echo, controller *controllers.Controller) {
-	cORSMiddleware(e)
-	e.GET("/", handlers.Ping)
+	e.Use(cORSMiddleware())
+
+	config := echojwt.Config{
+		SigningKey: []byte(os.Getenv("JWT_ACCESS_TOKEN")),
+		Skipper: func(c echo.Context) bool {
+			skippedPaths := []string{"/refresh-tokens", "/signup", "/login", "/ping"}
+			return slices.Contains(skippedPaths, c.Path())
+		},
+		SuccessHandler: decodeJWT,
+	}
+	e.Use(echojwt.WithConfig(config))
+	//e.GET("/refresh-tokens", controller.RefreshTokens)
+	e.GET("/ping", handlers.Ping)
+
 	e.GET("/users/count", controller.GetUsersCount)
 	e.POST("/user", controller.CreateUser)
-}
-
-func cORSMiddleware(e *echo.Echo) {
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{
-			"http://localhost:1323",
-		},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, echo.HeaderAccessControlAllowOrigin},
-	}))
 }
