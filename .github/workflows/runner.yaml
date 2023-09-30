@@ -13,6 +13,8 @@ jobs:
           go-version: '1.21.1'
       - name: Start MySQL
         run: sudo service mysql restart
+      - name: Install Redis
+        run: sudo apt-get install -y redis-tools redis-server
       - name: Install dependencies
         run: go get .
       - name: Test with the Go CLI

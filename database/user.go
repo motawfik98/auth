@@ -13,6 +13,11 @@ func (db *DB) CreateUser(user *models.User) error {
 	return err
 }
 
+func (db *DB) SaveAccessRefreshTokens(userTokens *models.UserTokens) error {
+	// same as upsert
+	return db.connection.Save(userTokens).Error
+}
+
 func (db *DB) GetUsersCount() int64 {
 	var count int64 = 0
 	db.connection.Model(&models.User{}).Count(&count)

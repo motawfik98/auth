@@ -5,12 +5,15 @@ import (
 	"backend-auth/database"
 	"backend-auth/models"
 	"backend-auth/utils"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,21 +24,32 @@ import (
 
 var controller *controllers.Controller
 var validator *utils.CustomValidator
+var dbConnection *gorm.DB
+var redisClient *redis.Client
+var bgCtx context.Context
 
 func TestMain(m *testing.M) {
 	if err := godotenv.Load("../.env"); err != nil {
 		panic(fmt.Sprintf("Cannot initialize env vars for tests: %s", err.Error()))
 	}
+	bgCtx = context.Background()
+	cleanup() // used to delete any data saved in any data source
 	controller = utils.InitializeController()
 	validator = utils.InitializeValidator()
-	cleanup() // used to delete any data saved in any data source
 	exitVal := m.Run()
 	os.Exit(exitVal)
 }
 
 func cleanup() {
-	dbConnection, _ := database.InitializeConnection()
+	dbConnection, _ = database.InitializeConnection()
+	dbConnection.Unscoped().Where("1 = 1").Delete(&models.UserTokens{})
 	dbConnection.Unscoped().Where("1 = 1").Delete(&models.User{})
+	opts, err := redis.ParseURL(os.ExpandEnv("redis://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/#{REDIS_DB}"))
+	if err != nil {
+		panic(err)
+	}
+	redisClient = redis.NewClient(opts)
+	redisClient.FlushAll(bgCtx)
 }
 
 func TestUsersCount(t *testing.T) {
@@ -61,12 +75,23 @@ func TestCreateUserSuccessfully(t *testing.T) {
 		assert.Nil(t, err)
 		expectedAccessTokenExpiration := time.Now().Add(time.Hour * 24).Unix()
 		expectedRefreshTokenExpiration := time.Now().Add(time.Hour * 24 * 90).Unix()
-		parseJWT(t, output["access_token"], expectedAccessTokenExpiration)
+		deviceID := parseJWT(t, output["access_token"], expectedAccessTokenExpiration)
 		parseJWT(t, output["refresh_token"], expectedRefreshTokenExpiration)
+		var user models.User
+		var userTokens models.UserTokens
+		dbConnection.First(&user)
+		assert.NotNil(t, user)
+		dbConnection.Where("user_id = ?", user.ID).First(&userTokens)
+		assert.Equal(t, userTokens.AccessToken, output["access_token"])
+		assert.Equal(t, userTokens.RefreshToken, output["refresh_token"])
+		cachedAccessToken, _ := redisClient.Get(bgCtx, fmt.Sprintf("access-token::%d::%s", user.ID, deviceID)).Result()
+		cachedRefreshToken, _ := redisClient.Get(bgCtx, fmt.Sprintf("refresh-token::%d::%s", user.ID, deviceID)).Result()
+		assert.Equal(t, cachedAccessToken, userTokens.AccessToken)
+		assert.Equal(t, cachedRefreshToken, userTokens.RefreshToken)
 	}
 }
 
-func parseJWT(t *testing.T, stringToken string, expectedExpiration int64) {
+func parseJWT(t *testing.T, stringToken string, expectedExpiration int64) string {
 	token, _, err := new(jwt.Parser).ParseUnverified(stringToken, jwt.MapClaims{})
 	assert.Nil(t, err)
 	claims, ok := token.Claims.(jwt.MapClaims)
@@ -77,4 +102,6 @@ func parseJWT(t *testing.T, stringToken string, expectedExpiration int64) {
 	timeDifferenceInSeconds := expectedExpiration - expirationTime
 	assert.Less(t, timeDifferenceInSeconds, int64(5))
 	assert.NotNil(t, claims["id"])
+	assert.NotNil(t, claims["device_id"])
+	return claims["device_id"].(string)
 }

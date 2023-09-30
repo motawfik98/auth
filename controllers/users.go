@@ -6,6 +6,7 @@ import (
 	"backend-auth/models"
 	"errors"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -40,8 +41,14 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 
-	accessToken, refreshToken, err := generateAccessRefreshTokens(user)
+	deviceID := uuid.New().String()
+	accessToken, refreshToken, err := generateAccessRefreshTokens(user, deviceID)
 	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	err = c.updateAccessRefreshTokens(user.ID, deviceID, accessToken, refreshToken)
+	if err != nil {
+		logger.LogFailure(err, "Error saving access/refresh tokens")
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 
@@ -56,10 +63,11 @@ func (c *Controller) GetUsersCount(ctx echo.Context) error {
 	return ctx.String(http.StatusOK, strconv.FormatInt(count, 10))
 }
 
-func generateAccessRefreshTokens(user *models.User) (string, string, error) {
+func generateAccessRefreshTokens(user *models.User, deviceID string) (string, string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 	claims["id"] = user.ID
+	claims["device_id"] = deviceID
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // access token to expire in 1 day
 	accessToken, err := token.SignedString([]byte(os.Getenv("JWT_ACCESS_TOKEN")))
 	if err != nil {
@@ -73,4 +81,19 @@ func generateAccessRefreshTokens(user *models.User) (string, string, error) {
 		return "", "", err
 	}
 	return accessToken, refreshToken, nil
+}
+
+func (c *Controller) updateAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string) error {
+	userTokens := &models.UserTokens{
+		UserID:       userID,
+		DeviceID:     deviceID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+	err := c.datasource.SaveAccessRefreshTokens(userTokens)
+	if err != nil {
+		return err
+	}
+	_ = c.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken)
+	return nil
 }

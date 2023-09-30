@@ -31,13 +31,13 @@ var (
 )
 
 func InitializeConnection() (*gorm.DB, error) {
-	connectionStr := os.ExpandEnv("${DB_USERNAME}:${DB_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/")
+	connectionStr := os.ExpandEnv("${DB_USERNAME}:${DB_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/?parseTime=true")
 	connection, err := gorm.Open(mysql.Open(connectionStr), &gorm.Config{
 		Logger: newLogger,
 	})
 	if err == nil {
 		createDB(connection)
-		connection.AutoMigrate(&models.User{})
+		connection.AutoMigrate(&models.User{}, &models.UserTokens{})
 	}
 
 	return connection, err

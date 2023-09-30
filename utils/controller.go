@@ -15,16 +15,15 @@ func InitializeController() *controllers.Controller {
 		panic(err)
 	}
 
-	cacheConnection, err := cache.InitializeConnection()
+	db := new(database.DB)
+	db.SetDBConnection(dbConnection)
+
+	cacheObj := new(cache.Cache)
+	err = cacheObj.InitializeConnection()
 	if err != nil {
 		logger.LogFailure(err, "Failed to initialize cache connection")
 		panic(err)
 	}
-
-	db := new(database.DB)
-	db.SetDBConnection(dbConnection)
-	cacheObj := new(cache.Cache)
-	cacheObj.SetCache(cacheConnection)
 
 	controller := new(controllers.Controller)
 	controller.SetDatasource(db)

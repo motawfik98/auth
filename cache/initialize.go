@@ -1,22 +1,30 @@
 package cache
 
 import (
-	"github.com/redis/go-redis/v9"
 	"os"
+	"strconv"
 )
 
+type ICache interface {
+	SaveAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string) error
+}
+
 type Cache struct {
-	connection *redis.Client
+	Connection ICache
 }
 
-func (cache *Cache) SetCache(connection *redis.Client) {
-	cache.connection = connection
-}
-
-func InitializeConnection() (*redis.Client, error) {
-	opts, err := redis.ParseURL(os.ExpandEnv("redis://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/#{REDIS_DB}"))
-	if err != nil {
-		return nil, err
+func (cache *Cache) InitializeConnection() error {
+	redisEnabled, _ := strconv.ParseBool(os.Getenv("REDIS_ENABLED"))
+	if redisEnabled {
+		redisClient, err := initializeRedisConnection()
+		if err != nil {
+			return err
+		}
+		redisCache := new(RedisCache)
+		redisCache.client = redisClient
+		cache.Connection = redisCache
+	} else {
+		cache.Connection = initializeNoCache()
 	}
-	return redis.NewClient(opts), nil
+	return nil
 }

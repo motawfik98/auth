@@ -12,9 +12,21 @@ services:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       timeout: 5s
       retries: 10
+  redis:
+    image: redis:7.2.1-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./tmp/redis_data:/var/lib/redis/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      timeout: 2s
+      retries: 10
   web:
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     build: .
     ports:
@@ -27,4 +39,5 @@ services:
       DB_NAME: auth
       JWT_ACCESS_TOKEN: secret
       JWT_REFRESH_TOKEN: refresh-secret
+      REDIS_ENABLED: 1
 
