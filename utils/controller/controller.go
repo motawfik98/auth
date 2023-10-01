@@ -1,10 +1,11 @@
-package utils
+package controller
 
 import (
 	"backend-auth/cache"
 	"backend-auth/controllers"
 	"backend-auth/database"
 	"backend-auth/logger"
+	"backend-auth/utils"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -31,8 +32,8 @@ func InitializeController() *controllers.Controller {
 	return controller
 }
 
-func InitializeValidator() *CustomValidator {
-	customValidator := &CustomValidator{Validator: validator.New()}
+func InitializeValidator() *utils.CustomValidator {
+	customValidator := &utils.CustomValidator{Validator: validator.New()}
 	customValidator.TranslateErrors()
 	return customValidator
 }

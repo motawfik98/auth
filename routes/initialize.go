@@ -20,8 +20,12 @@ func InitializeRoutes(e *echo.Echo, controller *controllers.Controller) {
 		},
 		SuccessHandler: decodeJWT,
 	}
+	refreshConfig := echojwt.Config{
+		SigningKey:     []byte(os.Getenv("JWT_REFRESH_TOKEN")),
+		SuccessHandler: decodeJWT,
+	}
 	e.Use(echojwt.WithConfig(config))
-	//e.GET("/refresh-tokens", controller.RefreshTokens)
+	e.GET("/refresh-tokens", controller.RefreshTokens, echojwt.WithConfig(refreshConfig))
 	e.GET("/ping", handlers.Ping)
 
 	e.GET("/users/count", controller.GetUsersCount)

@@ -5,6 +5,7 @@ import (
 	"backend-auth/database"
 	"backend-auth/models"
 	"backend-auth/utils"
+	controllerUtil "backend-auth/utils/controller"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,8 +35,8 @@ func TestMain(m *testing.M) {
 	}
 	bgCtx = context.Background()
 	cleanup() // used to delete any data saved in any data source
-	controller = utils.InitializeController()
-	validator = utils.InitializeValidator()
+	controller = controllerUtil.InitializeController()
+	validator = controllerUtil.InitializeValidator()
 	exitVal := m.Run()
 	os.Exit(exitVal)
 }

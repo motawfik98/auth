@@ -18,6 +18,10 @@ func (db *DB) SaveAccessRefreshTokens(userTokens *models.UserTokens) error {
 	return db.connection.Save(userTokens).Error
 }
 
+func (db *DB) MarkRefreshTokenAsUsed(token *models.UsedRefreshToken) error {
+	return db.connection.Create(token).Error
+}
+
 func (db *DB) GetUsersCount() int64 {
 	var count int64 = 0
 	db.connection.Model(&models.User{}).Count(&count)

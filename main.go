@@ -2,7 +2,7 @@ package main
 
 import (
 	"backend-auth/routes"
-	"backend-auth/utils"
+	controllerUtil "backend-auth/utils/controller"
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -24,9 +24,9 @@ func main() {
 		}
 	}
 
-	controller := utils.InitializeController()
+	controller := controllerUtil.InitializeController()
 
-	e.Validator = utils.InitializeValidator()
+	e.Validator = controllerUtil.InitializeValidator()
 
 	routes.InitializeRoutes(e, controller)
 

@@ -30,3 +30,9 @@ func (cache *RedisCache) SaveAccessRefreshTokens(userID uint, deviceID, accessTo
 	_, err := pipe.Exec(ctx)
 	return err
 }
+
+func (cache *RedisCache) MarkRefreshTokenAsUsed(refreshToken string) (int64, error) {
+	ctx := context.Background()
+	usedRefreshTokensKey := usedRefreshTokensKey()
+	return cache.client.SAdd(ctx, usedRefreshTokensKey, refreshToken).Result()
+}

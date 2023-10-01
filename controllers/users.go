@@ -4,11 +4,13 @@ import (
 	"backend-auth/database"
 	"backend-auth/logger"
 	"backend-auth/models"
+	"backend-auth/utils"
 	"errors"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 	"net/http"
 	"os"
 	"strconv"
@@ -42,7 +44,7 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 	}
 
 	deviceID := uuid.New().String()
-	accessToken, refreshToken, err := generateAccessRefreshTokens(user, deviceID)
+	accessToken, refreshToken, err := generateAccessRefreshTokens(user.ID, deviceID)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
@@ -63,10 +65,66 @@ func (c *Controller) GetUsersCount(ctx echo.Context) error {
 	return ctx.String(http.StatusOK, strconv.FormatInt(count, 10))
 }
 
-func generateAccessRefreshTokens(user *models.User, deviceID string) (string, string, error) {
+func (c *Controller) RefreshTokens(ctx echo.Context) error {
+	userID, deviceID, err := utils.FetchUserAndDevice(ctx)
+	if err != nil {
+		logger.LogFailure(err, "Error fetching the user or device ID from refresh token")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	accessToken, refreshToken, err := generateAccessRefreshTokens(userID, deviceID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	oldRefreshToken, oldTokenExpiry, err := utils.FetchRefreshTokenAndExpiry(ctx)
+	if err != nil {
+		logger.LogFailure(err, "Error fetching the old refresh token or old refresh token expiry time")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	userTokens := models.UserTokens{
+		UserID:       userID,
+		DeviceID:     deviceID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+	usedRefreshToken := models.UsedRefreshToken{
+		UserID:             userID,
+		RefreshToken:       oldRefreshToken,
+		RefreshTokenExpiry: oldTokenExpiry,
+	}
+	err = c.datasource.InitializeTransaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&userTokens).Error; err != nil {
+			logger.LogFailure(err, "Error creating/updating the user tokens")
+			return err // return any error will rollback
+		}
+		if err := tx.Create(&usedRefreshToken).Error; err != nil {
+			logger.LogFailure(err, "Error adding refresh token to used pool")
+			return err
+		}
+
+		if _, err := c.cache.Connection.MarkRefreshTokenAsUsed(oldRefreshToken); err != nil {
+			logger.LogFailure(err, "Error adding the used refresh token to Redis")
+			return err
+		}
+		if err := c.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken); err != nil {
+			logger.LogFailure(err, "Error adding the access/refresh token to Redis")
+			return err
+		}
+
+		return nil // return nil will commit the whole transaction
+	})
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	return ctx.JSON(http.StatusOK, echo.Map{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
+func generateAccessRefreshTokens(userID uint, deviceID string) (string, string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
-	claims["id"] = user.ID
+	claims["id"] = userID
 	claims["device_id"] = deviceID
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // access token to expire in 1 day
 	accessToken, err := token.SignedString([]byte(os.Getenv("JWT_ACCESS_TOKEN")))

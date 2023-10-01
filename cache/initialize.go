@@ -7,6 +7,7 @@ import (
 
 type ICache interface {
 	SaveAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string) error
+	MarkRefreshTokenAsUsed(refreshToken string) (int64, error)
 }
 
 type Cache struct {

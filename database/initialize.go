@@ -43,6 +43,10 @@ func InitializeConnection() (*gorm.DB, error) {
 	return connection, err
 }
 
+func (db *DB) InitializeTransaction(fc func(tx *gorm.DB) error) error {
+	return db.connection.Transaction(fc)
+}
+
 func createDB(connection *gorm.DB) {
 	createDBCommand := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", os.Getenv("DB_NAME"))
 	connection.Exec(createDBCommand)
