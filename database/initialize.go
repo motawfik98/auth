@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"log"
 	"os"
-	"time"
 )
 
 type DB struct {
@@ -19,22 +16,9 @@ func (db *DB) SetDBConnection(gormDB *gorm.DB) {
 	db.connection = gormDB
 }
 
-var (
-	newLogger = logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-		logger.Config{
-			SlowThreshold: time.Millisecond, // Slow SQL threshold
-			LogLevel:      logger.Info,      // Log level
-			Colorful:      true,             // Disable color
-		},
-	)
-)
-
 func InitializeConnection() (*gorm.DB, error) {
 	connectionStr := os.ExpandEnv("${DB_USERNAME}:${DB_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/?parseTime=true")
-	connection, err := gorm.Open(mysql.Open(connectionStr), &gorm.Config{
-		Logger: newLogger,
-	})
+	connection, err := gorm.Open(mysql.Open(connectionStr))
 	if err == nil {
 		createDB(connection)
 		connection.AutoMigrate(&models.User{}, &models.UserTokens{})
