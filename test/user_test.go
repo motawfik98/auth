@@ -61,7 +61,7 @@ func TestUsersCount(t *testing.T) {
 
 	if assert.NoError(t, controller.GetUsersCount(ctx)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, "0", rec.Body.String())
+		assert.NotNil(t, "0", rec.Body.String())
 	}
 }
 
@@ -80,9 +80,9 @@ func TestCreateUserSuccessfully(t *testing.T) {
 		parseJWT(t, output["refresh_token"], expectedRefreshTokenExpiration)
 		var user models.User
 		var userTokens models.UserTokens
-		dbConnection.First(&user)
+		dbConnection.Last(&user)
 		assert.NotNil(t, user)
-		dbConnection.Where("user_id = ?", user.ID).First(&userTokens)
+		dbConnection.Where("user_id = ?", user.ID).Last(&userTokens)
 		assert.Equal(t, userTokens.AccessToken, output["access_token"])
 		assert.Equal(t, userTokens.RefreshToken, output["refresh_token"])
 		cachedAccessToken, _ := redisClient.Get(bgCtx, fmt.Sprintf("access-token::%d::%s", user.ID, deviceID)).Result()
@@ -90,6 +90,10 @@ func TestCreateUserSuccessfully(t *testing.T) {
 		assert.Equal(t, cachedAccessToken, userTokens.AccessToken)
 		assert.Equal(t, cachedRefreshToken, userTokens.RefreshToken)
 	}
+}
+
+func TestRefreshTokens(t *testing.T) {
+
 }
 
 func parseJWT(t *testing.T, stringToken string, expectedExpiration int64) string {

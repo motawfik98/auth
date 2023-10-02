@@ -12,6 +12,15 @@ import (
 func InitializeRoutes(e *echo.Echo, controller *controllers.Controller) {
 	e.Use(cORSMiddleware())
 
+	e.Use(JWTMiddleware())
+	e.GET("/refresh-tokens", controller.RefreshTokens, JWTRefreshMiddleware())
+	e.GET("/ping", handlers.Ping)
+
+	e.GET("/users/count", controller.GetUsersCount)
+	e.POST("/user", controller.CreateUser)
+}
+
+func JWTMiddleware() echo.MiddlewareFunc {
 	config := echojwt.Config{
 		SigningKey: []byte(os.Getenv("JWT_ACCESS_TOKEN")),
 		Skipper: func(c echo.Context) bool {
@@ -20,14 +29,13 @@ func InitializeRoutes(e *echo.Echo, controller *controllers.Controller) {
 		},
 		SuccessHandler: decodeJWT,
 	}
+	return echojwt.WithConfig(config)
+}
+
+func JWTRefreshMiddleware() echo.MiddlewareFunc {
 	refreshConfig := echojwt.Config{
 		SigningKey:     []byte(os.Getenv("JWT_REFRESH_TOKEN")),
 		SuccessHandler: decodeJWT,
 	}
-	e.Use(echojwt.WithConfig(config))
-	e.GET("/refresh-tokens", controller.RefreshTokens, echojwt.WithConfig(refreshConfig))
-	e.GET("/ping", handlers.Ping)
-
-	e.GET("/users/count", controller.GetUsersCount)
-	e.POST("/user", controller.CreateUser)
+	return echojwt.WithConfig(refreshConfig)
 }

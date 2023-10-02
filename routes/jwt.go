@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"strconv"
 	"time"
@@ -16,4 +16,9 @@ func decodeJWT(c echo.Context) {
 	c.Request().Header.Set("x-user-id", strconv.Itoa(id))
 	c.Request().Header.Set("x-device-id", deviceID)
 	c.Request().Header.Set("x-token-expiry", strconv.Itoa(int(expirationTime)))
+	c.Response().Before(func() { // remove the added headers before writing (returning) the response
+		c.Request().Header.Del("x-user-id")
+		c.Request().Header.Del("x-device-id")
+		c.Request().Header.Del("x-token-expiry")
+	})
 }
