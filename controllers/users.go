@@ -5,7 +5,9 @@ import (
 	"backend-auth/logger"
 	"backend-auth/models"
 	"backend-auth/utils"
+	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -44,11 +46,11 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 	}
 
 	deviceID := uuid.New().String()
-	accessToken, refreshToken, err := generateAccessRefreshTokens(user.ID, deviceID)
+	accessToken, _, refreshToken, refreshTokenExpiry, err := generateAccessRefreshTokens(user.ID, deviceID)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
-	err = c.updateAccessRefreshTokens(user.ID, deviceID, accessToken, refreshToken)
+	err = c.createAccessRefreshTokens(user.ID, deviceID, accessToken, refreshToken, refreshTokenExpiry)
 	if err != nil {
 		logger.LogFailure(err, "Error saving access/refresh tokens")
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
@@ -71,13 +73,24 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		logger.LogFailure(err, "Error fetching the user or device ID from refresh token")
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
-	accessToken, refreshToken, err := generateAccessRefreshTokens(userID, deviceID)
-	if err != nil {
-		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
-	}
 	oldRefreshToken, oldTokenExpiry, err := utils.FetchRefreshTokenAndExpiry(ctx)
 	if err != nil {
 		logger.LogFailure(err, "Error fetching the old refresh token or old refresh token expiry time")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	usedBefore, _ := c.cache.Connection.IsUsedRefreshToken(oldRefreshToken)
+	if !c.cache.Enabled {
+		usedBefore, err = c.datasource.IsUsedRefreshToken(oldRefreshToken)
+		if err != nil {
+			logger.LogFailure(err, fmt.Sprintf("Error checking used refresh token from DB: %s", oldRefreshToken))
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+		}
+	}
+	if usedBefore {
+		return ctx.JSON(http.StatusBadRequest, echo.Map{})
+	}
+	accessToken, _, refreshToken, refreshTokenExpiry, err := generateAccessRefreshTokens(userID, deviceID)
+	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 	userTokens := models.UserTokens{
@@ -88,6 +101,12 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		UserID:             userID,
 		RefreshToken:       oldRefreshToken,
 		RefreshTokenExpiry: oldTokenExpiry,
+	}
+	generatedRefreshToken := models.GeneratedRefreshToken{
+		UserID:               userID,
+		RefreshToken:         refreshToken,
+		RefreshTokenExpiry:   time.Unix(refreshTokenExpiry, 0),
+		ParentRefreshTokenID: sql.NullInt64{Int64: int64(c.datasource.GetGeneratedRefreshToken(oldRefreshToken).ID), Valid: true},
 	}
 	err = c.datasource.InitializeTransaction(func(tx *gorm.DB) error {
 		if err := tx.
@@ -100,9 +119,16 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 			logger.LogFailure(err, "Error adding refresh token to used pool")
 			return err
 		}
-
-		if _, err := c.cache.Connection.MarkRefreshTokenAsUsed(oldRefreshToken); err != nil {
+		if err := tx.Create(&generatedRefreshToken).Error; err != nil {
+			logger.LogFailure(err, "Error creating generated refresh token")
+			return err
+		}
+		if count, err := c.cache.Connection.MarkRefreshTokenAsUsed(oldRefreshToken); err != nil {
 			logger.LogFailure(err, "Error adding the used refresh token to Redis")
+			return err
+		} else if count < 1 {
+			err := errors.New("cannot mark refresh token as used (it may have been used before)")
+			logger.LogFailure(err, "Error marking the refresh token in redis")
 			return err
 		}
 
@@ -121,35 +147,51 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 	})
 }
 
-func generateAccessRefreshTokens(userID uint, deviceID string) (string, string, error) {
+func generateAccessRefreshTokens(userID uint, deviceID string) (string, int64, string, int64, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 	claims["id"] = userID
 	claims["device_id"] = deviceID
-	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // access token to expire in 1 day
-	claims["r"] = uuid.New().String()                     // randomize jwt even if two requests came in the same second (useful in testing)
+	accessTokenExpiry := time.Now().Add(time.Hour * 24).Unix()       // access token to expire in 1 day
+	refreshTokenExpiry := time.Now().Add(time.Hour * 24 * 90).Unix() // refresh token to expire in 90 days
+	claims["exp"] = accessTokenExpiry
+	claims["r"] = uuid.New().String() // randomize jwt even if two requests came in the same second (useful in testing)
 	accessToken, err := token.SignedString([]byte(os.Getenv("JWT_ACCESS_TOKEN")))
 	if err != nil {
 		logger.LogFailure(err, "Error generating the access token")
-		return "", "", err
+		return "", 0, "", 0, err
 	}
-	claims["exp"] = time.Now().Add(time.Hour * 24 * 90).Unix() // refresh token to expire in 90 days
+	claims["exp"] = refreshTokenExpiry
 	refreshToken, err := token.SignedString([]byte(os.Getenv("JWT_REFRESH_TOKEN")))
 	if err != nil {
 		logger.LogFailure(err, "Error generating the refresh token")
-		return "", "", err
+		return "", 0, "", 0, err
 	}
-	return accessToken, refreshToken, nil
+	return accessToken, accessTokenExpiry, refreshToken, refreshTokenExpiry, nil
 }
 
-func (c *Controller) updateAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string) error {
+func (c *Controller) createAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string, refreshTokenExpiry int64) error {
 	userTokens := &models.UserTokens{
 		UserID:       userID,
 		DeviceID:     deviceID,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}
-	err := c.datasource.SaveAccessRefreshTokens(userTokens)
+	generatedRefreshToken := &models.GeneratedRefreshToken{
+		UserID:               userID,
+		RefreshToken:         refreshToken,
+		RefreshTokenExpiry:   time.Unix(refreshTokenExpiry, 0),
+		ParentRefreshTokenID: sql.NullInt64{Int64: 0, Valid: false},
+	}
+	err := c.datasource.InitializeTransaction(func(tx *gorm.DB) error {
+		if err := tx.Create(userTokens).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(generatedRefreshToken).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}

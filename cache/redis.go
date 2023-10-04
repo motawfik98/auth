@@ -36,3 +36,9 @@ func (cache *RedisCache) MarkRefreshTokenAsUsed(refreshToken string) (int64, err
 	usedRefreshTokensKey := usedRefreshTokensKey()
 	return cache.client.SAdd(ctx, usedRefreshTokensKey, refreshToken).Result()
 }
+
+func (cache *RedisCache) IsUsedRefreshToken(refreshToken string) (bool, error) {
+	ctx := context.Background()
+	usedRefreshTokensKey := usedRefreshTokensKey()
+	return cache.client.SIsMember(ctx, usedRefreshTokensKey, refreshToken).Result()
+}

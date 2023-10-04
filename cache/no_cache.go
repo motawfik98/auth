@@ -12,5 +12,9 @@ func (cache *NoCache) SaveAccessRefreshTokens(userID uint, deviceID, accessToken
 }
 
 func (cache *NoCache) MarkRefreshTokenAsUsed(refreshToken string) (int64, error) {
-	return 0, nil
+	return 1, nil
+}
+
+func (cache *NoCache) IsUsedRefreshToken(refreshToken string) (bool, error) {
+	return false, nil
 }

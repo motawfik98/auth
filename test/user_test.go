@@ -44,6 +44,7 @@ func TestMain(m *testing.M) {
 
 func cleanup() {
 	dbConnection, _ = database.InitializeConnection()
+	dbConnection.Unscoped().Where("1 = 1").Delete(&models.GeneratedRefreshToken{})
 	dbConnection.Unscoped().Where("1 = 1").Delete(&models.UserTokens{})
 	dbConnection.Unscoped().Where("1 = 1").Delete(&models.UsedRefreshToken{})
 	dbConnection.Unscoped().Where("1 = 1").Delete(&models.User{})
@@ -102,12 +103,13 @@ func TestRefreshTokens(t *testing.T) {
 		_ = json.Unmarshal(rec.Body.Bytes(), &output)
 		refreshToken := output["refresh_token"]
 		userID, deviceID, refreshExpiration := parseJWT(refreshToken)
-		ctx, _, rec = sendRequest(echo.GET, "/refresh-tokens", nil, validator, map[string]string{
+		headers := map[string]string{
 			"x-user-id":      strconv.Itoa(int(userID)),
 			"x-device-id":    deviceID,
 			"x-token-expiry": strconv.FormatInt(refreshExpiration, 10),
 			"Authorization":  fmt.Sprintf("Bearer %s", refreshToken),
-		})
+		}
+		ctx, _, rec = sendRequest(echo.GET, "/refresh-tokens", nil, validator, headers)
 		if assert.NoError(t, controller.RefreshTokens(ctx)) {
 			assert.Equal(t, rec.Code, http.StatusOK)
 			output := map[string]string{}
@@ -133,6 +135,10 @@ func TestRefreshTokens(t *testing.T) {
 			found, _ = redisClient.SIsMember(bgCtx, "used-refresh-tokens", refreshedRefreshToken).Result()
 			assert.False(t, found)
 		}
+		// sending the request again with the same refresh token, should return 400
+		ctx, _, rec = sendRequest(echo.GET, "/refresh-tokens", nil, validator, headers)
+		controller.RefreshTokens(ctx)
+		assert.Equal(t, rec.Code, http.StatusBadRequest)
 	}
 }
 

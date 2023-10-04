@@ -21,7 +21,7 @@ func InitializeConnection() (*gorm.DB, error) {
 	connection, err := gorm.Open(mysql.Open(connectionStr))
 	if err == nil {
 		createDB(connection)
-		connection.AutoMigrate(&models.User{}, &models.UserTokens{}, &models.UsedRefreshToken{})
+		connection.AutoMigrate(&models.User{}, &models.UserTokens{}, &models.UsedRefreshToken{}, &models.GeneratedRefreshToken{})
 	}
 
 	return connection, err
