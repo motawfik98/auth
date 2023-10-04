@@ -21,7 +21,7 @@ func TestJWTAuth(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	userJson := readRequestFile("requests/middleware/user-access.json")
-	ctx, _, createRec := sendRequest(http.MethodPost, "/users", strings.NewReader(userJson), validator)
+	ctx, _, createRec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
 	if assert.NoError(t, controller.CreateUser(ctx)) {
 		output := map[string]string{}
 		_ = json.Unmarshal(createRec.Body.Bytes(), &output)
@@ -50,7 +50,7 @@ func TestJWTRefresh(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
 	userJson := readRequestFile("requests/middleware/user-refresh.json")
-	ctx, _, createRec := sendRequest(http.MethodPost, "/users", strings.NewReader(userJson), validator)
+	ctx, _, createRec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
 	if assert.NoError(t, controller.CreateUser(ctx)) {
 		output := map[string]string{}
 		_ = json.Unmarshal(createRec.Body.Bytes(), &output)

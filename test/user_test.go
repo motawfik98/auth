@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,7 @@ func TestMain(m *testing.M) {
 func cleanup() {
 	dbConnection, _ = database.InitializeConnection()
 	dbConnection.Unscoped().Where("1 = 1").Delete(&models.UserTokens{})
+	dbConnection.Unscoped().Where("1 = 1").Delete(&models.UsedRefreshToken{})
 	dbConnection.Unscoped().Where("1 = 1").Delete(&models.User{})
 	opts, err := redis.ParseURL(os.ExpandEnv("redis://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/#{REDIS_DB}"))
 	if err != nil {
@@ -55,7 +57,7 @@ func cleanup() {
 
 func TestUsersCount(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/users/count", nil)
+	req := httptest.NewRequest(echo.GET, "/users/count", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
@@ -67,7 +69,7 @@ func TestUsersCount(t *testing.T) {
 
 func TestCreateUserSuccessfully(t *testing.T) {
 	userJson := readRequestFile("requests/user/successful.json")
-	ctx, _, rec := sendRequest(http.MethodPost, "/users", strings.NewReader(userJson), validator)
+	ctx, _, rec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
 
 	if assert.NoError(t, controller.CreateUser(ctx)) {
 		assert.Equal(t, http.StatusCreated, rec.Code)
@@ -76,8 +78,8 @@ func TestCreateUserSuccessfully(t *testing.T) {
 		assert.Nil(t, err)
 		expectedAccessTokenExpiration := time.Now().Add(time.Hour * 24).Unix()
 		expectedRefreshTokenExpiration := time.Now().Add(time.Hour * 24 * 90).Unix()
-		deviceID := parseJWT(t, output["access_token"], expectedAccessTokenExpiration)
-		parseJWT(t, output["refresh_token"], expectedRefreshTokenExpiration)
+		deviceID := checkJWT(t, output["access_token"], expectedAccessTokenExpiration)
+		checkJWT(t, output["refresh_token"], expectedRefreshTokenExpiration)
 		var user models.User
 		var userTokens models.UserTokens
 		dbConnection.Last(&user)
@@ -93,10 +95,57 @@ func TestCreateUserSuccessfully(t *testing.T) {
 }
 
 func TestRefreshTokens(t *testing.T) {
-
+	userJson := readRequestFile("requests/user/refresh.json")
+	ctx, _, rec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
+	if assert.NoError(t, controller.CreateUser(ctx)) {
+		output := map[string]string{}
+		_ = json.Unmarshal(rec.Body.Bytes(), &output)
+		refreshToken := output["refresh_token"]
+		userID, deviceID, refreshExpiration := parseJWT(refreshToken)
+		ctx, _, rec = sendRequest(echo.GET, "/refresh-tokens", nil, validator, map[string]string{
+			"x-user-id":      strconv.Itoa(int(userID)),
+			"x-device-id":    deviceID,
+			"x-token-expiry": strconv.FormatInt(refreshExpiration, 10),
+			"Authorization":  fmt.Sprintf("Bearer %s", refreshToken),
+		})
+		if assert.NoError(t, controller.RefreshTokens(ctx)) {
+			assert.Equal(t, rec.Code, http.StatusOK)
+			output := map[string]string{}
+			_ = json.Unmarshal(rec.Body.Bytes(), &output)
+			refreshedAccessToken := output["access_token"]
+			refreshedRefreshToken := output["refresh_token"]
+			var userTokens []models.UserTokens
+			dbConnection.Where("user_id = ?", userID).Find(&userTokens)
+			assert.Equal(t, len(userTokens), 1)
+			assert.Equal(t, userTokens[0].AccessToken, refreshedAccessToken)
+			assert.Equal(t, userTokens[0].RefreshToken, refreshedRefreshToken)
+			cachedAccessToken, _ := redisClient.Get(bgCtx, fmt.Sprintf("access-token::%d::%s", userID, deviceID)).Result()
+			cachedRefreshToken, _ := redisClient.Get(bgCtx, fmt.Sprintf("refresh-token::%d::%s", userID, deviceID)).Result()
+			assert.Equal(t, userTokens[0].AccessToken, cachedAccessToken)
+			assert.Equal(t, userTokens[0].RefreshToken, cachedRefreshToken)
+			var usedRefreshToken models.UsedRefreshToken
+			dbConnection.Last(&usedRefreshToken)
+			assert.Equal(t, usedRefreshToken.UserID, userID)
+			assert.Equal(t, usedRefreshToken.RefreshToken, refreshToken)
+			assert.Equal(t, usedRefreshToken.RefreshTokenExpiry.Unix(), refreshExpiration)
+			found, _ := redisClient.SIsMember(bgCtx, "used-refresh-tokens", refreshToken).Result()
+			assert.True(t, found)
+			found, _ = redisClient.SIsMember(bgCtx, "used-refresh-tokens", refreshedRefreshToken).Result()
+			assert.False(t, found)
+		}
+	}
 }
 
-func parseJWT(t *testing.T, stringToken string, expectedExpiration int64) string {
+func parseJWT(stringToken string) (uint, string, int64) {
+	token, _, _ := new(jwt.Parser).ParseUnverified(stringToken, jwt.MapClaims{})
+	claims, _ := token.Claims.(jwt.MapClaims)
+	expirationTime := time.Unix(int64(claims["exp"].(float64)), 0).Unix()
+	deviceID := claims["device_id"].(string)
+	userID := uint(claims["id"].(float64))
+	return userID, deviceID, expirationTime
+}
+
+func checkJWT(t *testing.T, stringToken string, expectedExpiration int64) string {
 	token, _, err := new(jwt.Parser).ParseUnverified(stringToken, jwt.MapClaims{})
 	assert.Nil(t, err)
 	claims, ok := token.Claims.(jwt.MapClaims)

@@ -81,8 +81,6 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 	userTokens := models.UserTokens{
-		UserID:       userID,
-		DeviceID:     deviceID,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}
@@ -92,7 +90,9 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		RefreshTokenExpiry: oldTokenExpiry,
 	}
 	err = c.datasource.InitializeTransaction(func(tx *gorm.DB) error {
-		if err := tx.Save(&userTokens).Error; err != nil {
+		if err := tx.
+			Where("user_id = ? AND device_id = ?", userID, deviceID).
+			Updates(&userTokens).Error; err != nil {
 			logger.LogFailure(err, "Error creating/updating the user tokens")
 			return err // return any error will rollback
 		}
@@ -105,13 +105,13 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 			logger.LogFailure(err, "Error adding the used refresh token to Redis")
 			return err
 		}
-		if err := c.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken); err != nil {
-			logger.LogFailure(err, "Error adding the access/refresh token to Redis")
-			return err
-		}
 
 		return nil // return nil will commit the whole transaction
 	})
+
+	if err := c.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken); err != nil {
+		logger.LogFailure(err, "Error adding the refreshed access/refresh token to Redis")
+	}
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
@@ -127,6 +127,7 @@ func generateAccessRefreshTokens(userID uint, deviceID string) (string, string, 
 	claims["id"] = userID
 	claims["device_id"] = deviceID
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // access token to expire in 1 day
+	claims["r"] = uuid.New().String()                     // randomize jwt even if two requests came in the same second (useful in testing)
 	accessToken, err := token.SignedString([]byte(os.Getenv("JWT_ACCESS_TOKEN")))
 	if err != nil {
 		logger.LogFailure(err, "Error generating the access token")

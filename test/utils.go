@@ -33,12 +33,15 @@ func readResponseFile(filename string) map[string]string {
 	return output
 }
 
-func sendRequest(method string, target string, body io.Reader, validator *utils.CustomValidator) (echo.Context, *http.Request, *httptest.ResponseRecorder) {
+func sendRequest(method, target string, body io.Reader, validator *utils.CustomValidator, headers map[string]string) (echo.Context, *http.Request, *httptest.ResponseRecorder) {
 	e := echo.New()
 	e.Validator = validator
 	req := httptest.NewRequest(method, target, body)
 	if method == http.MethodPost || method == http.MethodPut {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
