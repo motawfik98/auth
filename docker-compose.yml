@@ -12,6 +12,14 @@ services:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       timeout: 5s
       retries: 10
+  rabbitmq:
+    image: rabbitmq:3.12.6-alpine
+    ports:
+      - "5672:5672"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      timeout: 5s
+      retries: 10
   redis:
     image: redis:7.2.1-alpine
     ports:
@@ -40,4 +48,10 @@ services:
       JWT_ACCESS_TOKEN: secret
       JWT_REFRESH_TOKEN: refresh-secret
       REDIS_ENABLED: 1
+      RABBITMQ_ENABLED: 1
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+  
 

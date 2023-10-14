@@ -87,6 +87,13 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		}
 	}
 	if usedBefore {
+		queueName := "auth::invalidate-refresh-token-family"
+		err = c.messaging.Connection.SendMessage(queueName, map[string]interface{}{
+			"refresh-token": oldRefreshToken,
+		})
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+		}
 		return ctx.JSON(http.StatusBadRequest, echo.Map{})
 	}
 	accessToken, _, refreshToken, refreshTokenExpiry, err := generateAccessRefreshTokens(userID, deviceID)

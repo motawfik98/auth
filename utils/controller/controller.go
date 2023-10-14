@@ -5,7 +5,9 @@ import (
 	"backend-auth/controllers"
 	"backend-auth/database"
 	"backend-auth/logger"
+	"backend-auth/messaging"
 	"backend-auth/utils"
+	"fmt"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -26,9 +28,22 @@ func InitializeController() *controllers.Controller {
 		panic(err)
 	}
 
+	messagingObj := new(messaging.Messaging)
+	err = messagingObj.InitializeConnection()
+	if err != nil {
+		logger.LogFailure(err, "Failed to initialize messaging connection")
+		panic(err)
+	}
+	queueName, err := messagingObj.CreateQueues()
+	if err != nil {
+		logger.LogFailure(err, fmt.Sprintf("Failed to create queue: %s", queueName))
+		panic(err)
+	}
+
 	controller := new(controllers.Controller)
 	controller.SetDatasource(db)
 	controller.SetCache(cacheObj)
+	controller.SetMessaging(messagingObj)
 	return controller
 }
 

@@ -6,13 +6,13 @@ WORKDIR /app
 COPY . .
 
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -o auth
+RUN CGO_ENABLED=0 GOOS=linux go build -o api .
 
 
 FROM alpine:latest AS prod
 
 WORKDIR /app
-COPY --from=build /app/auth .
+COPY --from=build /app/api .
 
 EXPOSE 1323
-CMD ["./auth"]
+CMD ["./api"]
