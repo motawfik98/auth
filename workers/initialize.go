@@ -1,7 +1,7 @@
 package workers
 
 import (
-	"backend-auth/logger"
+	"backend-auth/internal/logger"
 	controllerUtil "backend-auth/utils/controller"
 	"fmt"
 	"github.com/joho/godotenv"

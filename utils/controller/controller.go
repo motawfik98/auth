@@ -1,11 +1,11 @@
 package controller
 
 import (
-	"backend-auth/cache"
 	"backend-auth/controllers"
-	"backend-auth/database"
-	"backend-auth/logger"
-	"backend-auth/messaging"
+	"backend-auth/internal/logger"
+	"backend-auth/pkg/cache"
+	"backend-auth/pkg/database"
+	"backend-auth/pkg/messaging"
 	"backend-auth/utils"
 	"fmt"
 	"github.com/go-playground/validator/v10"

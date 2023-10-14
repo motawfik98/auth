@@ -2,8 +2,8 @@ package test
 
 import (
 	"backend-auth/controllers"
-	"backend-auth/database"
-	"backend-auth/models"
+	"backend-auth/pkg/database"
+	"backend-auth/pkg/models"
 	"backend-auth/utils"
 	controllerUtil "backend-auth/utils/controller"
 	"context"

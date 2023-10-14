@@ -14,7 +14,7 @@ func main() {
 
 	port, exist := os.LookupEnv("PORT")
 	if os.Getenv("ENV") == "dev" {
-		if err := godotenv.Load(); err != nil {
+		if err := godotenv.Load("../configs"); err != nil {
 			fmt.Println(err.Error())
 		}
 		port = "1322"

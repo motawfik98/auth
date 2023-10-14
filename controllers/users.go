@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"backend-auth/database"
-	"backend-auth/logger"
-	"backend-auth/models"
+	"backend-auth/internal/logger"
+	"backend-auth/pkg/database"
+	"backend-auth/pkg/models"
 	"backend-auth/utils"
 	"database/sql"
 	"errors"

@@ -1,7 +1,7 @@
 package database
 
 import (
-	"backend-auth/models"
+	"backend-auth/pkg/models"
 	"strings"
 )
 

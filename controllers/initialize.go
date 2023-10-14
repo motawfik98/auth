@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"backend-auth/cache"
-	"backend-auth/database"
-	"backend-auth/messaging"
+	"backend-auth/pkg/cache"
+	"backend-auth/pkg/database"
+	"backend-auth/pkg/messaging"
 )
 
 type Controller struct {
