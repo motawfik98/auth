@@ -31,7 +31,7 @@ var redisClient *redis.Client
 var bgCtx context.Context
 
 func TestMain(m *testing.M) {
-	if err := godotenv.Load("../.env"); err != nil {
+	if err := godotenv.Load("../configs/dev/.env"); err != nil {
 		panic(fmt.Sprintf("Cannot initialize env vars for tests: %s", err.Error()))
 	}
 	bgCtx = context.Background()

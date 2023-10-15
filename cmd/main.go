@@ -1,10 +1,10 @@
 package main
 
 import (
+	"backend-auth/configs/dev"
 	"backend-auth/routes"
 	controllerUtil "backend-auth/utils/controller"
 	"fmt"
-	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"os"
 )
@@ -12,16 +12,16 @@ import (
 func main() {
 	e := echo.New()
 
-	port, exist := os.LookupEnv("PORT")
+	var port string
 	if os.Getenv("ENV") == "dev" {
-		if err := godotenv.Load("../configs"); err != nil {
-			fmt.Println(err.Error())
-		}
+		dev.LoadGlobalEnvFile()
 		port = "1322"
 	} else {
-		if !exist {
-			port = "1323"
-		}
+		port = "1323"
+	}
+	envPort, exist := os.LookupEnv("PORT")
+	if exist {
+		port = envPort
 	}
 
 	controller := controllerUtil.InitializeController()
