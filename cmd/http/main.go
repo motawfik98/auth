@@ -2,8 +2,7 @@ package main
 
 import (
 	"backend-auth/configs/dev"
-	"backend-auth/routes"
-	controllerUtil "backend-auth/utils/controller"
+	"backend-auth/internal/utils/connection"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"os"
@@ -24,11 +23,11 @@ func main() {
 		port = envPort
 	}
 
-	controller := controllerUtil.InitializeController()
+	server := connection.InitializeServer()
 
-	e.Validator = controllerUtil.InitializeValidator()
+	e.Validator = connection.InitializeValidator()
 
-	routes.InitializeRoutes(e, controller)
+	server.InitializeRoutes(e)
 
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", port)))
 }

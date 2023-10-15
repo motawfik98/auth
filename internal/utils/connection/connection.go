@@ -1,17 +1,46 @@
-package controller
+package connection
 
 import (
-	"backend-auth/controllers"
 	"backend-auth/internal/logger"
+	"backend-auth/internal/utils"
 	"backend-auth/pkg/cache"
 	"backend-auth/pkg/database"
 	"backend-auth/pkg/messaging"
-	"backend-auth/utils"
+	"backend-auth/pkg/servers"
+	"backend-auth/pkg/workers"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 )
 
-func InitializeController() *controllers.Controller {
+func InitializeServer() *servers.Server {
+	db := getDBConnection()
+
+	cacheObj := getCacheConnection()
+
+	messagingObj := getMessagingConnection()
+
+	s := new(servers.Server)
+	s.SetDatasource(db)
+	s.SetCache(cacheObj)
+	s.SetMessaging(messagingObj)
+	return s
+}
+
+func InitializeWorker() *workers.Worker {
+	db := getDBConnection()
+
+	cacheObj := getCacheConnection()
+
+	messagingObj := getMessagingConnection()
+
+	w := new(workers.Worker)
+	w.SetDatasource(db)
+	w.SetCache(cacheObj)
+	w.SetMessaging(messagingObj)
+	return w
+}
+
+func getDBConnection() *database.DB {
 	dbConnection, err := database.InitializeConnection()
 	if err != nil {
 		logger.LogFailure(err, "Failed to initialize DB connection")
@@ -20,16 +49,22 @@ func InitializeController() *controllers.Controller {
 
 	db := new(database.DB)
 	db.SetDBConnection(dbConnection)
+	return db
+}
 
+func getCacheConnection() *cache.Cache {
 	cacheObj := new(cache.Cache)
-	err = cacheObj.InitializeConnection()
+	err := cacheObj.InitializeConnection()
 	if err != nil {
 		logger.LogFailure(err, "Failed to initialize cache connection")
 		panic(err)
 	}
+	return cacheObj
+}
 
+func getMessagingConnection() *messaging.Messaging {
 	messagingObj := new(messaging.Messaging)
-	err = messagingObj.InitializeConnection()
+	err := messagingObj.InitializeConnection()
 	if err != nil {
 		logger.LogFailure(err, "Failed to initialize messaging connection")
 		panic(err)
@@ -39,12 +74,7 @@ func InitializeController() *controllers.Controller {
 		logger.LogFailure(err, fmt.Sprintf("Failed to create queue: %s", queueName))
 		panic(err)
 	}
-
-	controller := new(controllers.Controller)
-	controller.SetDatasource(db)
-	controller.SetCache(cacheObj)
-	controller.SetMessaging(messagingObj)
-	return controller
+	return messagingObj
 }
 
 func InitializeValidator() *utils.CustomValidator {

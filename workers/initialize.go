@@ -1,19 +1,18 @@
 package workers
 
 import (
+	"backend-auth/configs/dev"
 	"backend-auth/internal/logger"
-	controllerUtil "backend-auth/utils/controller"
+	"backend-auth/internal/utils/connection"
 	"fmt"
-	"github.com/joho/godotenv"
 	"os"
 	"strings"
 )
 
 func InitializeWorker(workerFn func()) {
 	if os.Getenv("ENV") == "dev" {
-		if err := godotenv.Load("../..", "."); err != nil {
-			panic(err)
-		}
+		dev.LoadGlobalEnvFile()
+		dev.LoadWorkersEnvFile()
 	}
 
 	fmt.Printf("Starting worker %s", os.Getenv("WORKER_NAME"))
@@ -22,9 +21,9 @@ func InitializeWorker(workerFn func()) {
 	queuesNames := os.Getenv("Q")
 	queues := strings.Split(queuesNames, "-q")
 	fmt.Printf("Starting for queues %s", queues)
-	controller := controllerUtil.InitializeController()
+	worker := connection.InitializeWorker()
 	for _, queueName := range queues {
-		msgs, err := controller.InitializeConsumer(queueName)
+		msgs, err := worker.InitializeConsumer(queueName)
 		if err != nil {
 			logger.LogFailure(err, fmt.Sprintf("Error initializing consumer for queue %s", queueName))
 			panic(err)
