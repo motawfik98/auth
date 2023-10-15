@@ -25,10 +25,10 @@ func (w *Worker) SetMessaging(messaging *messaging.Messaging) {
 	w.messaging = messaging
 }
 
-func (w *Worker) InitializeConsumer(queueName string) (<-chan amqp.Delivery, error) {
-	msgs, err := w.messaging.Connection.CreateConsumer(queueName)
+func (w *Worker) InitializeConsumer(queueName string) (*amqp.Channel, <-chan amqp.Delivery, error) {
+	ch, msgs, err := w.messaging.Connection.CreateConsumer(queueName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return msgs, nil
+	return ch, msgs, nil
 }

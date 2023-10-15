@@ -9,7 +9,7 @@ import (
 type iMessaging interface {
 	createQueue(name string) error
 	SendMessage(queueName string, body map[string]interface{}) error
-	CreateConsumer(queueName string) (<-chan amqp.Delivery, error)
+	CreateConsumer(queueName string) (*amqp.Channel, <-chan amqp.Delivery, error)
 }
 
 type Messaging struct {

@@ -60,12 +60,11 @@ func (r *RabbitMq) SendMessage(queueName string, body map[string]interface{}) er
 	})
 }
 
-func (r *RabbitMq) CreateConsumer(queueName string) (<-chan amqp.Delivery, error) {
+func (r *RabbitMq) CreateConsumer(queueName string) (*amqp.Channel, <-chan amqp.Delivery, error) {
 	ch, err := r.client.Channel()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer ch.Close()
 
 	msgs, err := ch.Consume(
 		queueName, // queue
@@ -77,7 +76,7 @@ func (r *RabbitMq) CreateConsumer(queueName string) (<-chan amqp.Delivery, error
 		nil,       // args
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return msgs, nil
+	return ch, msgs, nil
 }
