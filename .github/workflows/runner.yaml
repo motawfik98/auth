@@ -5,6 +5,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      rabbitmq:
+        image: rabbitmq:3.12.6
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+
+      redis:
+        image: redis:7.2.1
+        ports:
+          - 6379:6379
+
     steps:
       - uses: actions/checkout@v3
       - name: Setup Go
@@ -13,11 +27,9 @@ jobs:
           go-version: '1.21.1'
       - name: Start MySQL
         run: sudo service mysql restart
-      - name: Install Redis
-        run: sudo apt-get install -y redis-tools redis-server
       - name: Install dependencies
-        run: go get .
-      - name: Test with the Go CLI
-        run: go test ./...
+        run: go get ./...
       - name: Build
         run: go build -v ./...
+      - name: Test with the Go CLI
+        run: go test ./...
