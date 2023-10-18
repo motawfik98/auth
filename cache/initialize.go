@@ -5,14 +5,14 @@ import (
 	"strconv"
 )
 
-type iCache interface {
+type ICache interface {
 	SaveAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string) error
 	MarkRefreshTokenAsUsed(refreshToken string) (int64, error)
 	IsUsedRefreshToken(refreshToken string) (bool, error)
 }
 
 type Cache struct {
-	Connection iCache
+	Connection ICache
 	Enabled    bool
 }
 

@@ -12,14 +12,6 @@ services:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       timeout: 5s
       retries: 10
-  rabbitmq:
-    image: rabbitmq:3.12.6-alpine
-    ports:
-      - "5672:5672"
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
-      timeout: 5s
-      retries: 10
   redis:
     image: redis:7.2.1-alpine
     ports:
@@ -36,35 +28,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     build: .
     ports:
       - "1323:1323"
-    env_file:
-      - configs/dev/.env
     environment:
+      DB_USERNAME: root
+      DB_PASSWORD: root
       DB_HOST: db
-      RABBITMQ_HOST: rabbitmq
-  worker:
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    build:
-      context: ./
-      dockerfile: Dockerfile-Worker
-      args:
-        - WORKER_NAME=invalidate_refresh_token_family
-    env_file:
-      - configs/dev/.env
-      - configs/dev/.worker.env
-    environment:
-      DB_HOST: db
-      RABBITMQ_HOST: rabbitmq
-
-  
+      DB_PORT: 3306
+      DB_NAME: auth
+      JWT_ACCESS_TOKEN: secret
+      JWT_REFRESH_TOKEN: refresh-secret
+      REDIS_ENABLED: 1
 

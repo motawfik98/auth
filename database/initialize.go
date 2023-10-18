@@ -1,7 +1,7 @@
 package database
 
 import (
-	"backend-auth/pkg/models"
+	"backend-auth/models"
 	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

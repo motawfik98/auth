@@ -1,11 +1,11 @@
-package middleware
+package routes
 
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
-func CORSMiddleware() echo.MiddlewareFunc {
+func cORSMiddleware() echo.MiddlewareFunc {
 	return middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
 			"http://localhost:1323",

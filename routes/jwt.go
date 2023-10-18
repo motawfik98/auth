@@ -1,34 +1,11 @@
-package middleware
+package routes
 
 import (
 	"github.com/golang-jwt/jwt/v5"
-	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
-	"os"
-	"slices"
 	"strconv"
 	"time"
 )
-
-func JWTMiddleware() echo.MiddlewareFunc {
-	config := echojwt.Config{
-		SigningKey: []byte(os.Getenv("JWT_ACCESS_TOKEN")),
-		Skipper: func(c echo.Context) bool {
-			skippedPaths := []string{"/refresh-tokens", "/signup", "/login", "/ping"}
-			return slices.Contains(skippedPaths, c.Path())
-		},
-		SuccessHandler: decodeJWT,
-	}
-	return echojwt.WithConfig(config)
-}
-
-func JWTRefreshMiddleware() echo.MiddlewareFunc {
-	refreshConfig := echojwt.Config{
-		SigningKey:     []byte(os.Getenv("JWT_REFRESH_TOKEN")),
-		SuccessHandler: decodeJWT,
-	}
-	return echojwt.WithConfig(refreshConfig)
-}
 
 func decodeJWT(c echo.Context) {
 	user := c.Get("user").(*jwt.Token)
