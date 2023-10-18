@@ -1,11 +1,11 @@
 package test
 
 import (
-	"backend-auth/controllers"
-	"backend-auth/database"
-	"backend-auth/models"
-	"backend-auth/utils"
-	controllerUtil "backend-auth/utils/controller"
+	"backend-auth/internal/utils"
+	"backend-auth/internal/utils/connection"
+	"backend-auth/pkg/database"
+	"backend-auth/pkg/models"
+	"backend-auth/pkg/servers"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,20 +24,20 @@ import (
 	"time"
 )
 
-var controller *controllers.Controller
+var server *servers.Server
 var validator *utils.CustomValidator
 var dbConnection *gorm.DB
 var redisClient *redis.Client
 var bgCtx context.Context
 
 func TestMain(m *testing.M) {
-	if err := godotenv.Load("../.env"); err != nil {
+	if err := godotenv.Load("../configs/dev/.env"); err != nil {
 		panic(fmt.Sprintf("Cannot initialize env vars for tests: %s", err.Error()))
 	}
 	bgCtx = context.Background()
 	cleanup() // used to delete any data saved in any data source
-	controller = controllerUtil.InitializeController()
-	validator = controllerUtil.InitializeValidator()
+	server = connection.InitializeServer()
+	validator = connection.InitializeValidator()
 	exitVal := m.Run()
 	os.Exit(exitVal)
 }
@@ -62,7 +62,7 @@ func TestUsersCount(t *testing.T) {
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	if assert.NoError(t, controller.GetUsersCount(ctx)) {
+	if assert.NoError(t, server.GetUsersCount(ctx)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.NotNil(t, "0", rec.Body.String())
 	}
@@ -72,7 +72,7 @@ func TestCreateUserSuccessfully(t *testing.T) {
 	userJson := readRequestFile("requests/user/successful.json")
 	ctx, _, rec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
 
-	if assert.NoError(t, controller.CreateUser(ctx)) {
+	if assert.NoError(t, server.CreateUser(ctx)) {
 		assert.Equal(t, http.StatusCreated, rec.Code)
 		output := map[string]string{}
 		err := json.Unmarshal(rec.Body.Bytes(), &output)
@@ -98,7 +98,7 @@ func TestCreateUserSuccessfully(t *testing.T) {
 func TestRefreshTokens(t *testing.T) {
 	userJson := readRequestFile("requests/user/refresh.json")
 	ctx, _, rec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
-	if assert.NoError(t, controller.CreateUser(ctx)) {
+	if assert.NoError(t, server.CreateUser(ctx)) {
 		output := map[string]string{}
 		_ = json.Unmarshal(rec.Body.Bytes(), &output)
 		refreshToken := output["refresh_token"]
@@ -110,7 +110,7 @@ func TestRefreshTokens(t *testing.T) {
 			"Authorization":  fmt.Sprintf("Bearer %s", refreshToken),
 		}
 		ctx, _, rec = sendRequest(echo.GET, "/refresh-tokens", nil, validator, headers)
-		if assert.NoError(t, controller.RefreshTokens(ctx)) {
+		if assert.NoError(t, server.RefreshTokens(ctx)) {
 			assert.Equal(t, rec.Code, http.StatusOK)
 			output := map[string]string{}
 			_ = json.Unmarshal(rec.Body.Bytes(), &output)
@@ -137,7 +137,7 @@ func TestRefreshTokens(t *testing.T) {
 		}
 		// sending the request again with the same refresh token, should return 400
 		ctx, _, rec = sendRequest(echo.GET, "/refresh-tokens", nil, validator, headers)
-		controller.RefreshTokens(ctx)
+		server.RefreshTokens(ctx)
 		assert.Equal(t, rec.Code, http.StatusBadRequest)
 	}
 }

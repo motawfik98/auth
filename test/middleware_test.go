@@ -1,7 +1,7 @@
 package test
 
 import (
-	"backend-auth/routes"
+	"backend-auth/pkg/middleware"
 	"encoding/json"
 	"fmt"
 	"github.com/labstack/echo/v4"
@@ -14,7 +14,7 @@ import (
 
 func TestJWTAuth(t *testing.T) {
 	e := echo.New()
-	e.Use(routes.JWTMiddleware())
+	e.Use(middleware.JWTMiddleware())
 	e.GET("/restricted", restrictedHandler)
 
 	req, rec := sendMiddlewareRequest(e, map[string]string{})
@@ -22,7 +22,7 @@ func TestJWTAuth(t *testing.T) {
 
 	userJson := readRequestFile("requests/middleware/user-access.json")
 	ctx, _, createRec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
-	if assert.NoError(t, controller.CreateUser(ctx)) {
+	if assert.NoError(t, server.CreateUser(ctx)) {
 		output := map[string]string{}
 		_ = json.Unmarshal(createRec.Body.Bytes(), &output)
 		accessToken := output["access_token"]
@@ -43,7 +43,7 @@ func TestJWTAuth(t *testing.T) {
 
 func TestJWTRefresh(t *testing.T) {
 	e := echo.New()
-	e.Use(routes.JWTRefreshMiddleware())
+	e.Use(middleware.JWTRefreshMiddleware())
 	e.GET("/restricted", restrictedHandler)
 
 	_, rec := sendMiddlewareRequest(e, map[string]string{})
@@ -51,7 +51,7 @@ func TestJWTRefresh(t *testing.T) {
 
 	userJson := readRequestFile("requests/middleware/user-refresh.json")
 	ctx, _, createRec := sendRequest(echo.POST, "/users", strings.NewReader(userJson), validator, nil)
-	if assert.NoError(t, controller.CreateUser(ctx)) {
+	if assert.NoError(t, server.CreateUser(ctx)) {
 		output := map[string]string{}
 		_ = json.Unmarshal(createRec.Body.Bytes(), &output)
 		accessToken := output["access_token"]

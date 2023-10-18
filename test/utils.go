@@ -1,7 +1,7 @@
 package test
 
 import (
-	"backend-auth/utils"
+	"backend-auth/internal/utils"
 	"encoding/json"
 	"github.com/labstack/echo/v4"
 	"io"

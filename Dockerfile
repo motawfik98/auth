@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . .
 
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -o api .
+RUN CGO_ENABLED=0 GOOS=linux go build -o api ./cmd/http
 
 
 FROM alpine:latest AS prod

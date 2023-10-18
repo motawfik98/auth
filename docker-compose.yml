@@ -42,7 +42,7 @@ services:
     ports:
       - "1323:1323"
     env_file:
-      - .env
+      - configs/dev/.env
     environment:
       DB_HOST: db
       RABBITMQ_HOST: rabbitmq
@@ -56,10 +56,12 @@ services:
         condition: service_healthy
     build:
       context: ./
-      dockerfile: ./workers/Dockerfile
+      dockerfile: Dockerfile-Worker
+      args:
+        - WORKER_NAME=invalidate_refresh_token_family
     env_file:
-      - .env
-      - workers/invalidate_refresh_token_family/.env
+      - configs/dev/.env
+      - configs/dev/.worker.env
     environment:
       DB_HOST: db
       RABBITMQ_HOST: rabbitmq
