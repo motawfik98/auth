@@ -1,10 +1,10 @@
-package controllers
+package servers
 
 import (
-	"backend-auth/database"
-	"backend-auth/logger"
-	"backend-auth/models"
-	"backend-auth/utils"
+	"backend-auth/internal/logger"
+	"backend-auth/internal/utils"
+	"backend-auth/pkg/database"
+	"backend-auth/pkg/models"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func (c *Controller) CreateUser(ctx echo.Context) error {
+func (s *Server) CreateUser(ctx echo.Context) error {
 	user := new(models.User)
 	if err := ctx.Bind(user); err != nil {
 		logger.LogFailure(err, "Error binding user for creation")
@@ -37,7 +37,7 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 	user.Password = string(hashesPassword)
-	err = c.datasource.CreateUser(user)
+	err = s.datasource.CreateUser(user)
 	if errors.Is(err, &database.DuplicateEmailError{}) {
 		return ctx.JSON(http.StatusConflict, echo.Map{})
 	}
@@ -50,7 +50,7 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
-	err = c.createAccessRefreshTokens(user.ID, deviceID, accessToken, refreshToken, refreshTokenExpiry)
+	err = s.createAccessRefreshTokens(user.ID, deviceID, accessToken, refreshToken, refreshTokenExpiry)
 	if err != nil {
 		logger.LogFailure(err, "Error saving access/refresh tokens")
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
@@ -62,12 +62,12 @@ func (c *Controller) CreateUser(ctx echo.Context) error {
 	})
 }
 
-func (c *Controller) GetUsersCount(ctx echo.Context) error {
-	count := c.datasource.GetUsersCount()
+func (s *Server) GetUsersCount(ctx echo.Context) error {
+	count := s.datasource.GetUsersCount()
 	return ctx.String(http.StatusOK, strconv.FormatInt(count, 10))
 }
 
-func (c *Controller) RefreshTokens(ctx echo.Context) error {
+func (s *Server) RefreshTokens(ctx echo.Context) error {
 	userID, deviceID, err := utils.FetchUserAndDevice(ctx)
 	if err != nil {
 		logger.LogFailure(err, "Error fetching the user or device ID from refresh token")
@@ -78,15 +78,22 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		logger.LogFailure(err, "Error fetching the old refresh token or old refresh token expiry time")
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
-	usedBefore, _ := c.cache.Connection.IsUsedRefreshToken(oldRefreshToken)
-	if !c.cache.Enabled {
-		usedBefore, err = c.datasource.IsUsedRefreshToken(oldRefreshToken)
+	usedBefore, _ := s.cache.Connection.IsUsedRefreshToken(oldRefreshToken)
+	if !s.cache.Enabled {
+		usedBefore, err = s.datasource.IsUsedRefreshToken(oldRefreshToken)
 		if err != nil {
 			logger.LogFailure(err, fmt.Sprintf("Error checking used refresh token from DB: %s", oldRefreshToken))
 			return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 		}
 	}
 	if usedBefore {
+		queueName := "auth::invalidate-refresh-token-family"
+		err = s.messaging.Connection.SendMessage(queueName, map[string]interface{}{
+			"refresh-token": oldRefreshToken,
+		})
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+		}
 		return ctx.JSON(http.StatusBadRequest, echo.Map{})
 	}
 	accessToken, _, refreshToken, refreshTokenExpiry, err := generateAccessRefreshTokens(userID, deviceID)
@@ -106,9 +113,9 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		UserID:               userID,
 		RefreshToken:         refreshToken,
 		RefreshTokenExpiry:   time.Unix(refreshTokenExpiry, 0),
-		ParentRefreshTokenID: sql.NullInt64{Int64: int64(c.datasource.GetGeneratedRefreshToken(oldRefreshToken).ID), Valid: true},
+		ParentRefreshTokenID: sql.NullInt64{Int64: int64(s.datasource.GetGeneratedRefreshToken(oldRefreshToken).ID), Valid: true},
 	}
-	err = c.datasource.InitializeTransaction(func(tx *gorm.DB) error {
+	err = s.datasource.InitializeTransaction(func(tx *gorm.DB) error {
 		if err := tx.
 			Where("user_id = ? AND device_id = ?", userID, deviceID).
 			Updates(&userTokens).Error; err != nil {
@@ -123,7 +130,7 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 			logger.LogFailure(err, "Error creating generated refresh token")
 			return err
 		}
-		if count, err := c.cache.Connection.MarkRefreshTokenAsUsed(oldRefreshToken); err != nil {
+		if count, err := s.cache.Connection.MarkRefreshTokenAsUsed(oldRefreshToken); err != nil {
 			logger.LogFailure(err, "Error adding the used refresh token to Redis")
 			return err
 		} else if count < 1 {
@@ -135,7 +142,7 @@ func (c *Controller) RefreshTokens(ctx echo.Context) error {
 		return nil // return nil will commit the whole transaction
 	})
 
-	if err := c.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken); err != nil {
+	if err := s.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken); err != nil {
 		logger.LogFailure(err, "Error adding the refreshed access/refresh token to Redis")
 	}
 	if err != nil {
@@ -170,7 +177,7 @@ func generateAccessRefreshTokens(userID uint, deviceID string) (string, int64, s
 	return accessToken, accessTokenExpiry, refreshToken, refreshTokenExpiry, nil
 }
 
-func (c *Controller) createAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string, refreshTokenExpiry int64) error {
+func (s *Server) createAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string, refreshTokenExpiry int64) error {
 	userTokens := &models.UserTokens{
 		UserID:       userID,
 		DeviceID:     deviceID,
@@ -183,7 +190,7 @@ func (c *Controller) createAccessRefreshTokens(userID uint, deviceID, accessToke
 		RefreshTokenExpiry:   time.Unix(refreshTokenExpiry, 0),
 		ParentRefreshTokenID: sql.NullInt64{Int64: 0, Valid: false},
 	}
-	err := c.datasource.InitializeTransaction(func(tx *gorm.DB) error {
+	err := s.datasource.InitializeTransaction(func(tx *gorm.DB) error {
 		if err := tx.Create(userTokens).Error; err != nil {
 			return err
 		}
@@ -195,6 +202,6 @@ func (c *Controller) createAccessRefreshTokens(userID uint, deviceID, accessToke
 	if err != nil {
 		return err
 	}
-	_ = c.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken)
+	_ = s.cache.Connection.SaveAccessRefreshTokens(userID, deviceID, accessToken, refreshToken)
 	return nil
 }

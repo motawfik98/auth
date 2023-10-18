@@ -1,10 +1,10 @@
-package handlers
+package servers
 
 import (
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
 
-func Ping(c echo.Context) error {
+func (s *Server) Ping(c echo.Context) error {
 	return c.String(http.StatusOK, "Success")
 }
