@@ -6,6 +6,7 @@ import (
 	"backend-auth/pkg/database"
 	"backend-auth/pkg/models"
 	"backend-auth/pkg/servers"
+	"backend-auth/pkg/workers"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 )
 
 var server *servers.Server
+var worker *workers.Worker
 var validator *utils.CustomValidator
 var dbConnection *gorm.DB
 var redisClient *redis.Client
@@ -37,6 +39,7 @@ func TestMain(m *testing.M) {
 	bgCtx = context.Background()
 	cleanup() // used to delete any data saved in any data source
 	server = connection.InitializeServer()
+	worker = connection.InitializeWorker()
 	validator = connection.InitializeValidator()
 	exitVal := m.Run()
 	os.Exit(exitVal)

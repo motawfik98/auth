@@ -9,6 +9,7 @@ type iCache interface {
 	SaveAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string) error
 	MarkRefreshTokenAsUsed(refreshToken string) (int64, error)
 	IsUsedRefreshToken(refreshToken string) (bool, error)
+	MarkRefreshTokensAsCompromised(refreshTokens []string) error
 }
 
 type Cache struct {

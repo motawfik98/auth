@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func StartWorker(workerFn func(worker *workers.Worker)) {
+func StartWorker(workerFn func(worker *workers.Worker, delivery amqp.Delivery) error) {
 	if os.Getenv("ENV") == "dev" {
 		dev.LoadGlobalEnvFile()
 		dev.LoadWorkersEnvFile()
@@ -37,8 +37,12 @@ func StartWorker(workerFn func(worker *workers.Worker)) {
 		go func(queueName string, ch *amqp.Channel, msgs <-chan amqp.Delivery) {
 			for d := range msgs {
 				fmt.Printf("Received a message for queue %s: %s\n", queueName, d.Body)
-				workerFn(worker)
-				d.Ack(true)
+				if err := workerFn(worker, d); err == nil {
+					d.Ack(true)
+				} else {
+					fmt.Printf("====>>> ERROR FOR MESSAGE: %s", d.Body)
+					d.Ack(true)
+				}
 			}
 			defer ch.Close()
 		}(queueName, ch, msgs)

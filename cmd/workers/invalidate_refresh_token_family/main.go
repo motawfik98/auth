@@ -3,11 +3,11 @@ package main
 import (
 	"backend-auth/cmd/workers"
 	workerModel "backend-auth/pkg/workers"
-	"fmt"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func workerFn(worker *workerModel.Worker) {
-	fmt.Println("Received a job")
+func workerFn(worker *workerModel.Worker, delivery amqp.Delivery) error {
+	return worker.InvalidateCompromisedRefreshTokens(delivery.Body)
 }
 
 func main() {

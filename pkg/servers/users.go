@@ -89,7 +89,7 @@ func (s *Server) RefreshTokens(ctx echo.Context) error {
 	if usedBefore {
 		queueName := "auth::invalidate-refresh-token-family"
 		err = s.messaging.Connection.SendMessage(queueName, map[string]interface{}{
-			"refresh-token": oldRefreshToken,
+			"refresh_token": oldRefreshToken,
 		})
 		if err != nil {
 			return ctx.JSON(http.StatusInternalServerError, echo.Map{})

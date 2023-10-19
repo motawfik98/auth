@@ -13,3 +13,7 @@ func userDeviceRefreshTokenKey(userID uint, deviceID string) string {
 func usedRefreshTokensKey() string {
 	return "used-refresh-tokens"
 }
+
+func compromisedRefreshTokensKey() string {
+	return "compromised-refresh-tokens"
+}

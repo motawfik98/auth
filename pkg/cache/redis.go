@@ -42,3 +42,9 @@ func (cache *RedisCache) IsUsedRefreshToken(refreshToken string) (bool, error) {
 	usedRefreshTokensKey := usedRefreshTokensKey()
 	return cache.client.SIsMember(ctx, usedRefreshTokensKey, refreshToken).Result()
 }
+
+func (cache *RedisCache) MarkRefreshTokensAsCompromised(refreshTokens []string) error {
+	ctx := context.Background()
+	compromisedRefreshTokensKey := compromisedRefreshTokensKey()
+	return cache.client.SAdd(ctx, compromisedRefreshTokensKey, refreshTokens).Err()
+}
