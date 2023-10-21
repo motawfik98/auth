@@ -14,6 +14,12 @@ func (db *DB) CreateUser(user *models.User) error {
 	return err
 }
 
+func (db *DB) GetUserByEmail(email string) (*models.User, error) {
+	user := new(models.User)
+	err := db.connection.Where("email = ?", email).Find(user).Error
+	return user, err
+}
+
 func (db *DB) SaveAccessRefreshTokens(userTokens *models.UserTokens) error {
 	return db.connection.Save(userTokens).Error
 }

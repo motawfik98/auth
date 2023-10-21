@@ -145,6 +145,42 @@ func TestRefreshTokens(t *testing.T) {
 	}
 }
 
+func TestLogin(t *testing.T) {
+	user := createUser(map[string]interface{}{}, false, dbConnection)
+	userJson := map[string]string{
+		"email":            user.Email,
+		"password":         user.Password,
+		"confirm_password": user.Password,
+		"full_name":        user.FullName,
+	}
+	marshal, _ := json.Marshal(userJson)
+	ctx, _, rec := sendRequest(echo.POST, "/users", strings.NewReader(string(marshal)), validator, nil)
+	_ = server.CreateUser(ctx)
+	ctx, _, rec = sendRequest(echo.POST, "/login", strings.NewReader(string(marshal)), validator, nil)
+	_ = server.Login(ctx)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	output := map[string]string{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &output)
+	var userTokens models.UserTokens
+	dbConnection.Last(&userTokens)
+	assert.Equal(t, userTokens.AccessToken, output["access_token"])
+	assert.Equal(t, userTokens.RefreshToken, output["refresh_token"])
+
+	correctPasswod := userJson["password"]
+	userJson["password"] = "wrong password"
+	marshal, _ = json.Marshal(userJson)
+	ctx, _, rec = sendRequest(echo.POST, "/login", strings.NewReader(string(marshal)), validator, nil)
+	_ = server.Login(ctx)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	userJson["password"] = correctPasswod
+	userJson["email"] = "wrong email"
+	marshal, _ = json.Marshal(userJson)
+	ctx, _, rec = sendRequest(echo.POST, "/login", strings.NewReader(string(marshal)), validator, nil)
+	_ = server.Login(ctx)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
 func parseJWT(stringToken string) (uint, string, int64) {
 	token, _, _ := new(jwt.Parser).ParseUnverified(stringToken, jwt.MapClaims{})
 	claims, _ := token.Claims.(jwt.MapClaims)

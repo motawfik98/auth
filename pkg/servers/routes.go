@@ -14,4 +14,5 @@ func (s *Server) InitializeRoutes(e *echo.Echo) {
 
 	e.GET("/users/count", s.GetUsersCount)
 	e.POST("/user", s.CreateUser)
+	e.POST("/login", s.Login)
 }

@@ -62,6 +62,36 @@ func (s *Server) CreateUser(ctx echo.Context) error {
 	})
 }
 
+func (s *Server) Login(ctx echo.Context) error {
+	user := new(models.User)
+	if err := ctx.Bind(user); err != nil {
+		logger.LogFailure(err, "Error binding user for creation")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	dbUser, err := s.datasource.GetUserByEmail(user.Email)
+	if err != nil {
+		logger.LogFailure(err, "Error fetching user by email")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	if dbUser.ID == 0 || bcrypt.CompareHashAndPassword([]byte(dbUser.Password), []byte(user.Password)) != nil {
+		return ctx.JSON(http.StatusUnauthorized, echo.Map{})
+	}
+	deviceID := uuid.New().String()
+	accessToken, _, refreshToken, refreshTokenExpiry, err := generateAccessRefreshTokens(dbUser.ID, deviceID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	err = s.createAccessRefreshTokens(dbUser.ID, deviceID, accessToken, refreshToken, refreshTokenExpiry)
+	if err != nil {
+		logger.LogFailure(err, "Error saving access/refresh tokens")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
+	}
+	return ctx.JSON(http.StatusOK, echo.Map{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
 func (s *Server) GetUsersCount(ctx echo.Context) error {
 	count := s.datasource.GetUsersCount()
 	return ctx.String(http.StatusOK, strconv.FormatInt(count, 10))
