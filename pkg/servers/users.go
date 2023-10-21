@@ -96,6 +96,10 @@ func (s *Server) RefreshTokens(ctx echo.Context) error {
 		}
 		return ctx.JSON(http.StatusBadRequest, echo.Map{})
 	}
+	compromised, _ := s.cache.Connection.IsCompromisedRefreshToken(oldRefreshToken)
+	if compromised {
+		return ctx.JSON(http.StatusBadRequest, echo.Map{})
+	}
 	accessToken, _, refreshToken, refreshTokenExpiry, err := generateAccessRefreshTokens(userID, deviceID)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})

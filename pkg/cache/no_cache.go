@@ -22,3 +22,7 @@ func (cache *NoCache) IsUsedRefreshToken(refreshToken string) (bool, error) {
 func (cache *NoCache) MarkRefreshTokensAsCompromised(refreshTokens []string) error {
 	return nil
 }
+
+func (cache *NoCache) IsCompromisedRefreshToken(refreshTokens string) (bool, error) {
+	return false, nil
+}

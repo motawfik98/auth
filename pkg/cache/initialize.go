@@ -10,6 +10,7 @@ type iCache interface {
 	MarkRefreshTokenAsUsed(refreshToken string) (int64, error)
 	IsUsedRefreshToken(refreshToken string) (bool, error)
 	MarkRefreshTokensAsCompromised(refreshTokens []string) error
+	IsCompromisedRefreshToken(refreshToken string) (bool, error)
 }
 
 type Cache struct {
