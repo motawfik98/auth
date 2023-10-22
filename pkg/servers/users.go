@@ -135,8 +135,9 @@ func (s *Server) RefreshTokens(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{})
 	}
 	userTokens := models.UserTokens{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		AccessToken:        accessToken,
+		RefreshToken:       refreshToken,
+		RefreshTokenExpiry: time.Unix(refreshTokenExpiry, 0),
 	}
 	usedRefreshToken := models.UsedRefreshToken{
 		UserID:             userID,
@@ -213,10 +214,11 @@ func generateAccessRefreshTokens(userID uint, deviceID string) (string, int64, s
 
 func (s *Server) createAccessRefreshTokens(userID uint, deviceID, accessToken, refreshToken string, refreshTokenExpiry int64) error {
 	userTokens := &models.UserTokens{
-		UserID:       userID,
-		DeviceID:     deviceID,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		UserID:             userID,
+		DeviceID:           deviceID,
+		AccessToken:        accessToken,
+		RefreshToken:       refreshToken,
+		RefreshTokenExpiry: time.Unix(refreshTokenExpiry, 0),
 	}
 	generatedRefreshToken := &models.GeneratedRefreshToken{
 		UserID:               userID,

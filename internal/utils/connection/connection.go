@@ -4,6 +4,7 @@ import (
 	"backend-auth/internal/logger"
 	"backend-auth/internal/utils"
 	"backend-auth/pkg/cache"
+	"backend-auth/pkg/cronjobs"
 	"backend-auth/pkg/database"
 	"backend-auth/pkg/messaging"
 	"backend-auth/pkg/servers"
@@ -38,6 +39,14 @@ func InitializeWorker() *workers.Worker {
 	w.SetCache(cacheObj)
 	w.SetMessaging(messagingObj)
 	return w
+}
+
+func InitializeCronJob() *cronjobs.CronJob {
+	db := getDBConnection()
+
+	cj := new(cronjobs.CronJob)
+	cj.SetDatasource(db)
+	return cj
 }
 
 func getDBConnection() *database.DB {
