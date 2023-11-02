@@ -11,5 +11,5 @@ type UserTokens struct {
 	DeviceID           string `gorm:"uniqueIndex:idx_user_device;size:40"`
 	AccessToken        string
 	RefreshToken       string
-	RefreshTokenExpiry time.Time
+	RefreshTokenExpiry time.Time `gorm:"index"`
 }
